@@ -16,7 +16,21 @@ const port = 64051;
 
 let newestTweetId = undefined;
 
+const emptyMessage = 'Nothing more to see 🎉';
+
+let marqueeIndex = 0;
+
 const recentTweets = new Set();
+
+app.get('/api/getMarquee', function(req, res) {
+  return res.send(
+    marquee(
+      formatTweet(
+        getOldestTweet()
+      )
+    )
+  );
+});
 
 app.get('/api/visitOldest', function(req, res) {
   visitTweet(
@@ -33,6 +47,7 @@ app.get('/api/getOldest', function(req, res) {
 });
 
 app.get('/api/deleteOldest', function(req, res) {
+  marqueeIndex = 0;
   recentTweets.delete(
     getOldestTweet(false)
   );
@@ -66,6 +81,32 @@ const fetchTweets = () => {
   );
 };
 
+const marquee = (tweet) => {
+  if (!tweet || tweet === emptyMessage) {
+    return emptyMessage;
+  } else {
+    const author = tweet.match(/^\@.+:/)[0];
+    const safeChars = author.length;
+
+    if (tweet.length - safeChars <= 25) {
+      return tweet;
+    }
+
+    const tweetContents = tweet.substring(safeChars);
+    const marqueedText = tweetContents.substr(marqueeIndex);
+    
+    const result = `${author}${marqueedText}`.substr(
+      0,
+      author.length + 25
+    )
+
+    if (marqueedText.length < 25) {
+      marqueeIndex = 0;
+    }
+
+    return result + Array(50-result.length).fill(' ').toString().replace(/,/g,'');
+  }
+};
 
 const getOldestTweet = (parse = true) => {
   const tweetArray = Array.from(recentTweets);
@@ -85,7 +126,7 @@ const visitTweet = (tweet) => {
 
 const formatTweet = (tweet) => {
   if (!tweet) {
-    return "Nothing more to see 🎉";
+    return emptyMessage;
   }
   const result = `@${tweet.user['screen_name']}: ` +  
   `${tweet.full_text}`.replace(/\s+/g, " ") // trim spaces
@@ -97,5 +138,10 @@ const formatTweet = (tweet) => {
 
 // fetch new tweets every now and then
 setInterval(fetchTweets, 60000);
+
+// increments marquee index every second
+setInterval(() => {
+  marqueeIndex++;
+}, 500);
 
 app.listen(port);
